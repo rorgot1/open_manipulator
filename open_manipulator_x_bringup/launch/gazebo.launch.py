@@ -20,7 +20,7 @@ import os
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.substitutions import PathJoinSubstitution
@@ -153,5 +153,58 @@ def generate_launch_description():
                 '-R', pose['R'], '-P', pose['P'], '-Y', pose['Y'],
                 ],
             output='screen',
+        ),
+
+        Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            namespace='box_base',
+            arguments=[
+                '-file', PathJoinSubstitution([FindPackageShare('open_manipulator_x_bringup'), 'worlds', 'base.sdf']),
+                '-entity', 'box_base',
+                '-x', '0.3', '-y', '0.0', '-z', '0.05',
+            ],
+            output='screen',
+        ),
+        Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            namespace='mid_base',
+            arguments=[
+                '-file', PathJoinSubstitution([FindPackageShare('open_manipulator_x_bringup'), 'worlds', 'middle_base.sdf']),
+                '-entity', 'box_base_mid',
+                '-x', '0.0', '-y', '0.4', '-z', '0.05',
+            ],
+            output='screen',
+        ),
+        Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            namespace='high_base',
+            arguments=[
+                '-file', PathJoinSubstitution([FindPackageShare('open_manipulator_x_bringup'), 'worlds', 'high_base.sdf']),
+                '-entity', 'box_base_high',
+                '-x', '-0.2', '-y', '0.0', '-z', '0.05',
+            ],
+            output='screen',
+        ),
+        Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            namespace='boxie',
+            arguments=[
+                '-file', PathJoinSubstitution([FindPackageShare('open_manipulator_x_bringup'), 'worlds', 'box.sdf']),
+                '-entity', 'my_box',
+                '-x', '0.3', '-y', '0.0', '-z', '0.2',
+            ],
+            output='screen',
+        ),
+        ExecuteProcess(
+            cmd=['gnome-terminal', '--', 'ros2', 'launch', 'open_manipulator_x_moveit_config', 'servo.launch.py'],
+            output='screen'
+        ),
+        ExecuteProcess(
+            cmd=['gnome-terminal', '--', 'ros2', 'run', 'open_manipulator_x_teleop', 'open_manipulator_x_teleop'],
+            output='screen'
         ),
     ])

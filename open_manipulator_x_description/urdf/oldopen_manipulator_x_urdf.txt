@@ -174,7 +174,7 @@
       <child link="${prefix}gripper_left_link"/>
       <origin xyz="0.0817 0.021 0.0" rpy="0 0 0"/>
       <axis xyz="0 1 0"/>
-      <limit velocity="4.8" effort="1" lower="-0.015" upper="0.019" /> <!-- ปรับ lower เป็น -0.015 -->
+      <limit velocity="4.8" effort="1" lower="-0.010" upper="0.019" />
       <dynamics damping="0.1"/>
     </joint>
 
@@ -192,20 +192,6 @@
         <geometry>
           <mesh filename="${meshes_file_direction}/gripper_left_palm.stl" scale="0.001 0.001 0.001"/>
         </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>2.0</mu>
-              <mu2>2.0</mu2>
-            </ode>
-          </friction>
-          <contact>
-            <ode>
-              <kp>1e6</kp> <!-- ค่า stiffness สูงขึ้น -->
-              <kd>1e2</kd> <!-- ค่า damping -->
-            </ode>
-          </contact>
-        </surface>
       </collision>
 
       <inertial>
@@ -228,7 +214,7 @@
       <child link="${prefix}gripper_right_link"/>
       <origin xyz="0.0817 -0.021 0" rpy="0 0 0"/>
       <axis xyz="0 -1 0"/>
-      <limit velocity="4.8" effort="1" lower="-0.015" upper="0.019" /> <!-- ปรับ lower เป็น -0.015 -->
+      <limit velocity="4.8" effort="1" lower="-0.010" upper="0.019" />
       <mimic joint="${prefix}gripper_left_joint" multiplier="1"/>
       <dynamics damping="0.1"/>
     </joint>
@@ -247,20 +233,6 @@
         <geometry>
           <mesh filename="${meshes_file_direction}/gripper_right_palm.stl" scale="0.001 0.001 0.001"/>
         </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>2.0</mu>
-              <mu2>2.0</mu2>
-            </ode>
-          </friction>
-          <contact>
-            <ode>
-              <kp>1e6</kp> <!-- ค่า stiffness สูงขึ้น -->
-              <kd>1e2</kd> <!-- ค่า damping -->
-            </ode>
-          </contact>
-        </surface>        
       </collision>
 
       <inertial>

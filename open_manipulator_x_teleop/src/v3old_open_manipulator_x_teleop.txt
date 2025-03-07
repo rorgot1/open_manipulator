@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <cmath>
 
 #include "open_manipulator_x_teleop/open_manipulator_x_teleop.hpp"
 
@@ -48,19 +47,17 @@ void KeyboardReader::shutdown()
 
 // KeyboardServo
 KeyboardServo::KeyboardServo()
-: publish_joint_(false), publish_gripper_(false), object_attached_(false)
+: publish_joint_(false), publish_gripper_(false)
 {
   nh_ = rclcpp::Node::make_shared("servo_keyboard_input");
 
-  servo_start_client_ = nh_->create_client<std_srvs::srv::Trigger>("/servo_node/start_servo");
-  servo_stop_client_ = nh_->create_client<std_srvs::srv::Trigger>("/servo_node/stop_servo");
+  servo_start_client_ =
+    nh_->create_client<std_srvs::srv::Trigger>("/servo_node/start_servo");
+  servo_stop_client_ =
+    nh_->create_client<std_srvs::srv::Trigger>("/servo_node/stop_servo");
 
   joint_pub_ = nh_->create_publisher<control_msgs::msg::JointJog>(ARM_JOINT_TOPIC, ROS_QUEUE_SIZE);
   client_ = rclcpp_action::create_client<control_msgs::action::GripperCommand>(nh_, "gripper_controller/gripper_cmd");
-  attach_client_ = nh_->create_client<linkattacher_msgs::srv::AttachLink>("/ATTACHLINK");
-  detach_client_ = nh_->create_client<linkattacher_msgs::srv::DetachLink>("/DETACHLINK");
-
-  executor_.add_node(nh_); // เพิ่ม node เข้า executor ครั้งเดียว
 }
 
 KeyboardServo::~KeyboardServo()
@@ -72,6 +69,7 @@ int KeyboardServo::keyLoop()
 {
   char c;
 
+  std::thread{std::bind(&KeyboardServo::spin, this)}.detach();
   connect_moveit_servo();
   start_moveit_servo();
 
@@ -82,22 +80,22 @@ int KeyboardServo::keyLoop()
   puts("  2/w: Joint2 +/-");
   puts("  3/e: Joint3 +/-");
   puts("  4/r: Joint4 +/-");
-  puts("Use o|p to gradually open/close the gripper step-by-step, '9' to grasp 'my_box', '0' to release.");
+  puts("Use o|p to gradually open/close the gripper step-by-step.");
   puts("'ESC' to quit.");
 
   std::thread{std::bind(&KeyboardServo::pub, this)}.detach();
 
   bool servoing = true;
-  float current_gripper_pos = -0.01;
-  const float GRIPPER_STEP = 0.0029;
+  float current_gripper_pos = -0.01; // ตำแหน่งเริ่มต้นสมมติเป็น "ปิด"
+  const float GRIPPER_STEP = 0.0029; // ขยับทีละ 0.0029 ต่อการกด (จาก -0.01 ถึง 0.019 = 0.029 รวม 10 ขั้น)
 
-  while (servoing && rclcpp::ok()) {
+  while (servoing) {
     try {
       input.readOne(&c);
     } catch (const std::runtime_error &) {
       perror("read():");
       return -1;
-     }
+    }
 
     RCLCPP_INFO(nh_->get_logger(), "value: 0x%02X", c);
 
@@ -154,69 +152,23 @@ int KeyboardServo::keyLoop()
         RCLCPP_INFO_STREAM(nh_->get_logger(), "Joint4 -");
         break;
       case KEYCODE_O:
-        if (current_gripper_pos < 0.019) {
-          current_gripper_pos += GRIPPER_STEP;
-          if (current_gripper_pos > 0.019) current_gripper_pos = 0.019;
-          send_gradual_goal(current_gripper_pos, current_gripper_pos, 1, 0);
+        if (current_gripper_pos < 0.019) { // ตรวจสอบขอบเขต
+          current_gripper_pos += GRIPPER_STEP; // เพิ่มตำแหน่งทีละขั้น
+          if (current_gripper_pos > 0.019) current_gripper_pos = 0.019; // จำกัดสูงสุด
+          send_gradual_goal(current_gripper_pos, current_gripper_pos, 1, 0); // ส่งคำสั่งขยับไปตำแหน่งใหม่
           RCLCPP_INFO_STREAM(nh_->get_logger(), "Gripper Opening Step: " << current_gripper_pos);
         } else {
           RCLCPP_INFO_STREAM(nh_->get_logger(), "Gripper Fully Open");
         }
         break;
       case KEYCODE_P:
-        if (current_gripper_pos > -0.01) {
-          current_gripper_pos -= GRIPPER_STEP;
-          if (current_gripper_pos < -0.01) current_gripper_pos = -0.01;
-          send_gradual_goal(current_gripper_pos, current_gripper_pos, 1, 0);
+        if (current_gripper_pos > -0.01) { // ตรวจสอบขอบเขต
+          current_gripper_pos -= GRIPPER_STEP; // ลดตำแหน่งทีละขั้น
+          if (current_gripper_pos < -0.01) current_gripper_pos = -0.01; // จำกัดต่ำสุด
+          send_gradual_goal(current_gripper_pos, current_gripper_pos, 1, 0); // ส่งคำสั่งขยับไปตำแหน่งใหม่
           RCLCPP_INFO_STREAM(nh_->get_logger(), "Gripper Closing Step: " << current_gripper_pos);
         } else {
           RCLCPP_INFO_STREAM(nh_->get_logger(), "Gripper Fully Closed");
-        }
-        break;
-      case KEYCODE_9:
-        {
-          auto request = std::make_shared<linkattacher_msgs::srv::AttachLink::Request>();
-          request->model1_name = "open_manipulator_x_system";
-          request->link1_name = "gripper_right_link";
-          request->model2_name = "my_box";
-          request->link2_name = "box_link";
-
-          if (attach_client_->wait_for_service(std::chrono::seconds(1))) {
-            auto future = attach_client_->async_send_request(request);
-            executor_.spin_until_future_complete(future); // ใช้ executor แทน
-            if (future.get()->success) { // ตรวจสอบผลลัพธ์จาก service
-              RCLCPP_INFO(nh_->get_logger(), "Grasped my_box successfully");
-              object_attached_ = true;
-            } else {
-              RCLCPP_ERROR(nh_->get_logger(), "Failed to grasp my_box: %s", future.get()->message.c_str());
-            }
-          } else {
-            RCLCPP_ERROR(nh_->get_logger(), "Attach service not available");
-          }
-        }
-        break;
-      case KEYCODE_0:
-        if (object_attached_) {
-          auto request = std::make_shared<linkattacher_msgs::srv::DetachLink::Request>();
-          request->model1_name = "open_manipulator_x_system";
-          request->link1_name = "gripper_right_link";
-          request->model2_name = "my_box";
-          request->link2_name = "box_link";
-
-          if (detach_client_->wait_for_service(std::chrono::seconds(1))) {
-            auto future = detach_client_->async_send_request(request);
-            executor_.spin_until_future_complete(future); // ใช้ executor แทน
-            if (future.get()->success) {
-              RCLCPP_INFO(nh_->get_logger(), "Released my_box successfully");
-              object_attached_ = false;
-            } else {
-              RCLCPP_ERROR(nh_->get_logger(), "Failed to release my_box: %s", future.get()->message.c_str());
-            }
-          } else {
-            RCLCPP_ERROR(nh_->get_logger(), "Detach service not available");
-          }
-        } else {
-          RCLCPP_WARN(nh_->get_logger(), "No object attached to release");
         }
         break;
       case KEYCODE_ESC:
@@ -227,8 +179,6 @@ int KeyboardServo::keyLoop()
         RCLCPP_WARN_STREAM(nh_->get_logger(), "Unassigned input : " << c);
         break;
     }
-
-    executor_.spin_some(); // spin เพื่อประมวลผล callback อื่นๆ
   }
 
   return 0;
@@ -249,6 +199,7 @@ void KeyboardServo::send_goal(float position)
 
 void KeyboardServo::send_gradual_goal(float start_pos, float end_pos, int steps, int delay_ms)
 {
+  // ฟังก์ชันนี้ยังคงใช้ได้ แต่เราจะเรียกมันด้วย steps = 1 และ delay_ms = 0
   for (int i = 0; i <= steps; i++) {
     float position = start_pos + (end_pos - start_pos) * i / steps;
     auto goal_msg = control_msgs::action::GripperCommand::Goal();
@@ -301,11 +252,13 @@ void KeyboardServo::start_moveit_servo()
   RCLCPP_INFO_STREAM(nh_->get_logger(), "call 'moveit_servo' start srv.");
   auto future = servo_start_client_->async_send_request(
     std::make_shared<std_srvs::srv::Trigger::Request>());
-  executor_.spin_until_future_complete(future);
-  if (future.get()->success) {
+  auto result = future.wait_for(std::chrono::seconds(1));
+  if (result == std::future_status::ready) {
     RCLCPP_INFO_STREAM(nh_->get_logger(), "SUCCESS to start 'moveit_servo'");
+    future.get();
   } else {
-    RCLCPP_ERROR_STREAM(nh_->get_logger(), "FAIL to start 'moveit_servo', execute without 'moveit_servo'");
+    RCLCPP_ERROR_STREAM(
+      nh_->get_logger(), "FAIL to start 'moveit_servo', execute without 'moveit_servo'");
   }
 }
 
@@ -314,9 +267,10 @@ void KeyboardServo::stop_moveit_servo()
   RCLCPP_INFO_STREAM(nh_->get_logger(), "call 'moveit_servo' END srv.");
   auto future = servo_stop_client_->async_send_request(
     std::make_shared<std_srvs::srv::Trigger::Request>());
-  executor_.spin_until_future_complete(future);
-  if (future.get()->success) {
+  auto result = future.wait_for(std::chrono::seconds(1));
+  if (result == std::future_status::ready) {
     RCLCPP_INFO_STREAM(nh_->get_logger(), "SUCCESS to stop 'moveit_servo'");
+    future.get();
   }
 }
 
@@ -337,20 +291,9 @@ void KeyboardServo::pub()
   }
 }
 
-void KeyboardServo::goal_result_callback(const rclcpp_action::ClientGoalHandle<control_msgs::action::GripperCommand>::WrappedResult & result)
+void KeyboardServo::spin()
 {
-  switch (result.code) {
-    case rclcpp_action::ResultCode::SUCCEEDED:
-      RCLCPP_INFO(nh_->get_logger(), "Gripper action succeeded");
-      break;
-    case rclcpp_action::ResultCode::ABORTED:
-      RCLCPP_ERROR(nh_->get_logger(), "Gripper action aborted");
-      break;
-    case rclcpp_action::ResultCode::CANCELED:
-      RCLCPP_WARN(nh_->get_logger(), "Gripper action canceled");
-      break;
-    default:
-      RCLCPP_ERROR(nh_->get_logger(), "Unknown result code");
-      break;
+  while (rclcpp::ok()) {
+    rclcpp::spin_some(nh_);
   }
 }
