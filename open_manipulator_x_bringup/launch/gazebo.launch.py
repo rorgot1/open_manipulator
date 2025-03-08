@@ -162,7 +162,7 @@ def generate_launch_description():
             arguments=[
                 '-file', PathJoinSubstitution([FindPackageShare('open_manipulator_x_bringup'), 'worlds', 'base.sdf']),
                 '-entity', 'box_base',
-                '-x', '0.3', '-y', '0.0', '-z', '0.05',
+                '-x', '0.3', '-y', '0.0', '-z', '0.0',
             ],
             output='screen',
         ),
@@ -195,7 +195,7 @@ def generate_launch_description():
             arguments=[
                 '-file', PathJoinSubstitution([FindPackageShare('open_manipulator_x_bringup'), 'worlds', 'box.sdf']),
                 '-entity', 'my_box',
-                '-x', '0.3', '-y', '0.0', '-z', '0.2',
+                '-x', '0.3', '-y', '0.0', '-z', '0.23',
             ],
             output='screen',
         ),
