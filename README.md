@@ -1,3 +1,8 @@
+# This Project Need IFRA_LinkAttacher package dependency
+https://github.com/IFRA-Cranfield/IFRA_LinkAttacher/tree/ros2
+
+
+
 # OpenMANIPULATOR-X
 <img src="https://github.com/ROBOTIS-GIT/emanual/blob/master/assets/images/platform/openmanipulator_x/OpenManipulator.png">
 <img src="https://github.com/ROBOTIS-GIT/emanual/blob/master/assets/images/platform/openmanipulator_x/OpenManipulator_Chain_Capture.png" width="500">
@@ -24,3 +29,4 @@ The 4-DOF Open Manipulator-X now supports MoveIt 2, enabling enhanced motion pla
 - [ROBOTIS e-Manual for DYNAMIXEL SDK](http://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_sdk/overview/)
 - [ROBOTIS e-Manual for DYNAMIXEL Workbench](http://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_workbench/)
 - [YouTube Play List for OpenMANIPULATOR](https://www.youtube.com/playlist?list=PLRG6WP3c31_WpEsB6_Rdt3KhiopXQlUkb)
+
