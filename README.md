@@ -57,5 +57,15 @@ source install/local_setup.bash
             cmd=['gnome-terminal', '--', 'ros2', 'run', 'open_manipulator_x_teleop', 'open_manipulator_x_teleop'],
             output='screen'
         ),
+colcon build --packages-select \
+    open_manipulator_x_description \
+    linkattacher_msgs \
+    open_manipulator_x_gui \
+    open_manipulator_x_playground \
+    open_manipulator_x_bringup \
+    open_manipulator_x_moveit_config \
+    open_manipulator_x_teleop \
+    ros2_linkattacher \
+    open_manipulator
         
     
